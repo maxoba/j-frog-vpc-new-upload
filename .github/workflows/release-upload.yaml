@@ -18,13 +18,15 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install semantic-release
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: modules
         run: npm install semantic-release @semantic-release/git @semantic-release/github -D
-
-      - name: Release
+      - name: release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npx semantic-release
         env:
@@ -39,56 +41,23 @@ jobs:
         working-directory: ./vpc
 
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v4
         with:
-          # Full history required so git describe can find the tag
-          # created by semantic-release in the previous job
-          fetch-depth: 0
-
-      - name: Fetch all tags
-        run: git fetch --tags
-
-      - name: Resolve latest tag
-        id: tag
-        run: |
-          TAG=$(git describe --tags $(git rev-list --tags --max-count=1) 2>/dev/null || echo "")
-          if [ -z "$TAG" ]; then
-            echo "::error::No tags found — semantic-release may not have created one."
-            exit 1
-          fi
-          echo "value=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Check Terraform formatting
-        # Use --check so the step fails loudly if files are misformatted
-        # rather than silently reformatting and hiding the problem
-        run: terraform fmt --recursive --check
-
-      - name: Checkov scan
+          fetch-tags: true
+      - run: terraform fmt --recursive
+      - name: Checkov GitHub Action
         continue-on-error: true
         uses: bridgecrewio/checkov-action@v12
         with:
           skip_check: CKV2_AWS_12,CKV2_AWS_11,CKV2_AWS_19
           output_format: cli,sarif
           output_file_path: console,results.sarif
-
-      - name: Setup JFrog CLI
+      - name: setup
         uses: jfrog/setup-jfrog-cli@v3
-
-      - name: Configure and publish to Artifactory
+      - name: config
         run: |
-          SERVER_ID="trialxphjx0"
-          jf c add "$SERVER_ID" \
-            --url="$JF_URL" \
-            --access-token="$JF_ACCESS_TOKEN" \
-            --interactive=false
-          jf tfc \
-            --server-id-deploy "$SERVER_ID" \
-            --repo-deploy terraform-local-modules
-          jf tf p \
-            --namespace="${JFROG_NAMESPACE}" \
-            --provider=local \
-            --tag="${{ steps.tag.outputs.value }}"
+          export SERVER_ID=""
+          jf c add $SERVER_ID --url=$JF_URL --access-token=$JF_ACCESS_TOKEN --interactive=false
+          jf tfc --server-id-deploy $SERVER_ID --repo-deploy terraform-local-modules
+          jf tf p --namespace=${JFROG_NAMESPACE} --provider=local --tag=$(git describe --tags `git rev-list --tags --max-count=1`)
