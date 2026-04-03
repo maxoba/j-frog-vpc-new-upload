@@ -20,10 +20,6 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: Install node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - name: modules
         run: npm install semantic-release @semantic-release/git @semantic-release/github -D
       - name: release
