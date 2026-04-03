@@ -42,7 +42,7 @@ jobs:
 
   upload:
     needs: release
-    if: needs.release.result == 'success' && needs.release.outputs.new_version != ''
+    if: success()
 
 
     runs-on: ubuntu-latest
