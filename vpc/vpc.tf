@@ -126,7 +126,7 @@ resource "aws_route_table_association" "public" {
 
   depends_on = [aws_route.public_internet_gateway, aws_subnet.public]
 }
-##11. AWS VPC Flow logs as a requirement for compliance
+#11. AWS VPC Flow logs as a requirement for compliance
 resource "aws_flow_log" "vpc_flow_log" {
   log_destination      = var.log_destination
   log_destination_type = var.log_destination_type
