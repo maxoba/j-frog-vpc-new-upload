@@ -64,6 +64,106 @@ jobs:
       - name: config
         run: |
           export SERVER_ID="trialxphjx0"
-          jf c add $SERVER_ID --url=$JF_URL --access-token=$JF_ACCESS_TOKEN --interactive=false
-          jf tfc --server-id-deploy $SERVER_ID --repo-deploy terraform-local-modules
-          jf tf p --namespace=${JFROG_NAMESPACE} --provider=local --tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+          name: Upload
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  JFROG_NAMESPACE: "cloudops"
+  JF_URL: ${{ secrets.JF_URL }}
+  JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+  JFROG_CLI_AVOID_NEW_VERSION_WARNING: "TRUE"
+
+jobs:
+  release:
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Run semantic-release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  upload:
+    needs: release
+    if: success()
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./vpc
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform format check
+        run: terraform fmt --recursive --check
+
+      - name: Checkov scan
+        uses: bridgecrewio/checkov-action@v12
+        continue-on-error: true
+        with:
+          skip_check: CKV2_AWS_12,CKV2_AWS_11,CKV2_AWS_19
+          output_format: cli,sarif
+          output_file_path: results.sarif
+
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v3
+
+      - name: Configure and publish to Artifactory
+        run: |
+          SERVER_ID="trialxphjx0"
+
+          jf c add "$SERVER_ID" \
+            --url="$JF_URL" \
+            --access-token="$JF_ACCESS_TOKEN" \
+            --interactive=false
+
+          jf tfc \
+            --server-id-deploy "$SERVER_ID" \
+            --repo-deploy terraform-local-modules
+
+          # ✅ SAFE VERSION SOURCE (NO GIT TAGS)
+          TAG="v$(node -p "require('../package.json').version")"
+
+          if [ -z "$TAG" ]; then
+            echo "::error::Version not found in package.json"
+            exit 1
+          fi
+
+          jf tf p \
+            --namespace="${JFROG_NAMESPACE}" \
+            --provider=local \
+            --tag="$TAG"
+          
