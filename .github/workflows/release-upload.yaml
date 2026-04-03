@@ -53,7 +53,7 @@ jobs:
           output_format: cli,sarif
           output_file_path: console,results.sarif
       - name: fetch tags
-        run: git fetch --tags origin
+        run: git fetch --depth=500
     
       - name: setup
         uses: jfrog/setup-jfrog-cli@v3
