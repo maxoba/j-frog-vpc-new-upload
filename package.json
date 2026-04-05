@@ -1,6 +1,6 @@
 {
   "name": "VPC-Release",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.0",
     "@semantic-release/release-notes-generator": "^14.0.0",
