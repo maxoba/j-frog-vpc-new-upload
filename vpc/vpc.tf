@@ -107,7 +107,7 @@ resource "aws_route" "private_nat_gateway" {
   depends_on = [aws_route_table.private]
 }
 
-#9. Private route association
+###9. Private route association
 resource "aws_route_table_association" "private" {
   count = length(var.private_cidr)
 
