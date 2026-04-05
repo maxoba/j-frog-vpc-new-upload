@@ -117,7 +117,7 @@ resource "aws_route_table_association" "private" {
   depends_on = [aws_route.private_nat_gateway, aws_subnet.private]
 }
 
-##10. Public route association
+#10. Public route association
 resource "aws_route_table_association" "public" {
   count = length(var.public_cidr)
 
